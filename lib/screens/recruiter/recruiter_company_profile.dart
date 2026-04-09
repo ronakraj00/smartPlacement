@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
 
-/// Allows recruiters to manage their company profile visible to students.
+/// Premium company profile editor for recruiters.
 class RecruiterCompanyProfile extends StatefulWidget {
   const RecruiterCompanyProfile({super.key});
 
@@ -19,6 +20,7 @@ class _RecruiterCompanyProfileState extends State<RecruiterCompanyProfile> {
   final _hqC = TextEditingController();
   final _empCountC = TextEditingController();
   bool _isLoading = false;
+  bool _isSaved = false;
   String? _companyDocId;
 
   @override
@@ -54,7 +56,7 @@ class _RecruiterCompanyProfileState extends State<RecruiterCompanyProfile> {
   }
 
   void _save() async {
-    setState(() => _isLoading = true);
+    setState(() { _isLoading = true; _isSaved = false; });
     final Map<String, dynamic> data = {
       'name': _nameC.text,
       'industry': _industryC.text,
@@ -74,7 +76,8 @@ class _RecruiterCompanyProfileState extends State<RecruiterCompanyProfile> {
         _companyDocId = ref.id;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company profile saved!')));
+        setState(() => _isSaved = true);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company profile saved! ✅')));
       }
     } catch (e) {
       if (mounted) {
@@ -91,55 +94,121 @@ class _RecruiterCompanyProfileState extends State<RecruiterCompanyProfile> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Company Profile', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          const Text('This info is visible to students and the placement cell.',
-              style: TextStyle(color: Colors.grey, fontSize: 13)),
-          const SizedBox(height: 20),
-
-          _field(_nameC, 'Company Name'),
-          _field(_industryC, 'Industry (e.g. Technology / SaaS)'),
-          _field(_websiteC, 'Careers Website'),
-          TextField(
-            controller: _descC,
-            decoration: const InputDecoration(labelText: 'Company Description', border: OutlineInputBorder()),
-            maxLines: 4,
+          // Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: AppTheme.primary.withAlpha(40), blurRadius: 16, offset: const Offset(0, 6))],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.business_rounded, size: 24, color: Colors.white),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Company Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+                      Text('Visible to students & placement cell', style: TextStyle(fontSize: 12, color: Colors.white.withAlpha(200))),
+                    ],
+                  ),
+                ),
+                if (_isSaved) Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 20),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
+
+          // Form Fields
+          _sectionLabel('Basic Information'),
+          const SizedBox(height: 10),
+          _premiumField(_nameC, 'Company Name', Icons.business),
+          _premiumField(_industryC, 'Industry', Icons.category_rounded, hint: 'e.g. Technology / SaaS'),
+          _premiumField(_websiteC, 'Careers Website', Icons.language_rounded, hint: 'https://...'),
+
+          const SizedBox(height: 20),
+          _sectionLabel('About Company'),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.dividerColor),
+            ),
+            child: TextField(
+              controller: _descC,
+              decoration: const InputDecoration(
+                labelText: 'Company Description',
+                alignLabelWithHint: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(16),
+              ),
+              maxLines: 5,
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          _sectionLabel('Additional Details'),
+          const SizedBox(height: 10),
           Row(children: [
-            Expanded(child: _field(_hqC, 'Headquarters')),
+            Expanded(child: _premiumField(_hqC, 'Headquarters', Icons.location_city_rounded)),
             const SizedBox(width: 12),
-            Expanded(child: _field(_empCountC, 'Employee Count')),
+            Expanded(child: _premiumField(_empCountC, 'Employees', Icons.people_rounded, hint: 'e.g. 50,000+')),
           ]),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : ElevatedButton.icon(
                   onPressed: _save,
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save Company Profile'),
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
+                  icon: const Icon(Icons.save_rounded, size: 20),
+                  label: const Text('Save Profile'),
+                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                 ),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _field(TextEditingController c, String label) {
+  Widget _sectionLabel(String text) {
+    return Row(
+      children: [
+        Container(width: 4, height: 18, decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 8),
+        Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+      ],
+    );
+  }
+
+  Widget _premiumField(TextEditingController c, String label, IconData icon, {String? hint}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: c,
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixIcon: Icon(icon, size: 20),
+        ),
       ),
     );
   }
 
   @override
   void dispose() {
-    _nameC.dispose(); _industryC.dispose(); _websiteC.dispose(); _descC.dispose();
-    _hqC.dispose(); _empCountC.dispose();
+    _nameC.dispose(); _industryC.dispose(); _websiteC.dispose();
+    _descC.dispose(); _hqC.dispose(); _empCountC.dispose();
     super.dispose();
   }
 }

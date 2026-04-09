@@ -12,11 +12,11 @@ import 'screens/recruiter/recruiter_home.dart';
 import 'screens/recruiter/job_creation_form.dart';
 import 'screens/recruiter/applicants_list.dart';
 import 'screens/admin/admin_dashboard.dart';
-import 'services/notification_service.dart';
 import 'screens/shared/company_profile_screen.dart';
 import 'screens/shared/student_public_profile.dart';
 
 import 'firebase_options.dart';
+import 'theme/app_theme.dart';
 
 final authService = AuthService();
 
@@ -127,10 +127,8 @@ class SmartPlacementApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Smart Placement Platform',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.theme,
       routerConfig: _router,
     );
   }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/job_model.dart';
 import '../../models/interview_model.dart';
 import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
 
 class PlacementCalendarScreen extends StatelessWidget {
   const PlacementCalendarScreen({super.key});
@@ -19,18 +20,41 @@ class PlacementCalendarScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Placement Calendar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text('Upcoming events for the next 30 days', style: TextStyle(color: Colors.grey.shade600)),
-          const SizedBox(height: 20),
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: AppTheme.primary.withAlpha(40), blurRadius: 16, offset: const Offset(0, 6))],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.calendar_month_rounded, size: 24, color: Colors.white),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Placement Calendar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+                      Text('Upcoming events for the next 30 days', style: TextStyle(fontSize: 12, color: Colors.white.withAlpha(200))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
 
           // My Interviews
-          const _SectionHeader(icon: Icons.videocam, title: 'My Interviews', color: Colors.orange),
+          _SectionHeader(icon: Icons.videocam_rounded, title: 'My Interviews', color: AppTheme.warning),
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('interviews')
-                .where('studentId', isEqualTo: user.id)
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('interviews').where('studentId', isEqualTo: user.id).snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final interviews = snapshot.data!.docs
@@ -38,7 +62,6 @@ class PlacementCalendarScreen extends StatelessWidget {
                   .where((i) => i.dateTime.isAfter(now))
                   .toList();
               interviews.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-
               if (interviews.isEmpty) return const _EmptyHint(text: 'No upcoming interviews.');
 
               return Column(
@@ -46,22 +69,18 @@ class PlacementCalendarScreen extends StatelessWidget {
                   title: i.roundName,
                   subtitle: '${i.venue} • ${i.mode.toUpperCase()}',
                   date: i.dateTime,
-                  color: Colors.orange,
-                  icon: i.mode == 'online' ? Icons.videocam : Icons.room,
+                  color: AppTheme.warning,
+                  icon: i.mode == 'online' ? Icons.videocam_rounded : Icons.room_rounded,
                 )).toList(),
               );
             },
           ),
-
           const SizedBox(height: 24),
 
           // Application Deadlines
-          const _SectionHeader(icon: Icons.timer, title: 'Application Deadlines', color: Colors.red),
+          _SectionHeader(icon: Icons.timer_rounded, title: 'Application Deadlines', color: AppTheme.error),
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('jobs')
-                .where('status', isEqualTo: 'approved')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('jobs').where('status', isEqualTo: 'approved').snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final jobs = snapshot.data!.docs
@@ -69,7 +88,6 @@ class PlacementCalendarScreen extends StatelessWidget {
                   .where((j) => j.deadline != null && j.deadline!.isAfter(now) && j.deadline!.isBefore(now.add(const Duration(days: 30))))
                   .toList();
               jobs.sort((a, b) => a.deadline!.compareTo(b.deadline!));
-
               if (jobs.isEmpty) return const _EmptyHint(text: 'No upcoming deadlines.');
 
               return Column(
@@ -77,23 +95,19 @@ class PlacementCalendarScreen extends StatelessWidget {
                   title: '${j.role} at ${j.company}',
                   subtitle: '${j.jobType} • ${j.location}',
                   date: j.deadline!,
-                  color: j.daysRemaining <= 3 ? Colors.red : Colors.deepPurple,
-                  icon: Icons.work_outline,
+                  color: j.daysRemaining <= 3 ? AppTheme.error : AppTheme.primary,
+                  icon: Icons.work_outline_rounded,
                   trailing: '${j.daysRemaining}d left',
                 )).toList(),
               );
             },
           ),
-
           const SizedBox(height: 24),
 
           // Recent Drives
-          const _SectionHeader(icon: Icons.business, title: 'Recent Job Postings', color: Colors.green),
+          _SectionHeader(icon: Icons.rocket_launch_rounded, title: 'Recent Job Postings', color: AppTheme.success),
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('jobs')
-                .where('status', isEqualTo: 'approved')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('jobs').where('status', isEqualTo: 'approved').snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final jobs = snapshot.data!.docs
@@ -101,7 +115,6 @@ class PlacementCalendarScreen extends StatelessWidget {
                   .where((j) => j.postedAt != null && j.postedAt!.isAfter(now.subtract(const Duration(days: 7))))
                   .toList();
               jobs.sort((a, b) => b.postedAt!.compareTo(a.postedAt!));
-
               if (jobs.isEmpty) return const _EmptyHint(text: 'No new jobs this week.');
 
               return Column(
@@ -109,13 +122,14 @@ class PlacementCalendarScreen extends StatelessWidget {
                   title: '${j.role} at ${j.company}',
                   subtitle: '${j.salary} • ${j.openPositions} positions',
                   date: j.postedAt!,
-                  color: Colors.green,
-                  icon: Icons.new_releases,
+                  color: AppTheme.success,
+                  icon: Icons.new_releases_rounded,
                   trailing: 'New',
                 )).toList(),
               );
             },
           ),
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -131,12 +145,16 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(color: color.withAlpha(15), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
         ],
       ),
     );
@@ -148,8 +166,8 @@ class _EmptyHint extends StatelessWidget {
   const _EmptyHint({required this.text});
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8, left: 28),
-    child: Text(text, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+    padding: const EdgeInsets.only(bottom: 8, left: 42),
+    child: Text(text, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
   );
 }
 
@@ -172,36 +190,61 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: color.withAlpha(25),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('${date.day}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-              Text(_monthAbbr(date.month), style: TextStyle(fontSize: 10, color: color)),
-            ],
-          ),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-        trailing: trailing != null
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            // Date chip
+            Container(
+              width: 52, height: 52,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [color.withAlpha(20), color.withAlpha(8)]),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('${date.day}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+                  Text(_monthAbbr(date.month), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+            if (trailing != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: color.withAlpha(20),
-                  borderRadius: BorderRadius.circular(8),
+                  color: color.withAlpha(12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: color.withAlpha(40)),
                 ),
-                child: Text(trailing!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+                child: Text(trailing!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
               )
-            : Icon(icon, color: color, size: 20),
+            else
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(color: color.withAlpha(12), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: color, size: 16),
+              ),
+          ],
+        ),
       ),
     );
   }

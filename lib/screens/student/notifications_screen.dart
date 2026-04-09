@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -27,19 +28,29 @@ class NotificationsScreen extends StatelessWidget {
 
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No notifications yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                Container(
+                  width: 80, height: 80,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withAlpha(12),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Icon(Icons.notifications_off_rounded, size: 40, color: AppTheme.primary.withAlpha(100)),
+                ),
+                const SizedBox(height: 16),
+                Text('All quiet', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 4),
+                const Text('No notifications yet.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
               ],
             ),
           );
         }
 
         return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
@@ -48,69 +59,83 @@ class NotificationsScreen extends StatelessWidget {
             final type = data['type'] ?? '';
             final isRead = data['read'] ?? false;
             final createdAt = data['createdAt'] as Timestamp?;
-            final timeStr = createdAt != null
-                ? _formatTime(createdAt.toDate())
-                : '';
+            final timeStr = createdAt != null ? _formatTime(createdAt.toDate()) : '';
 
-            IconData icon;
-            Color iconColor;
-            switch (type) {
-              case 'status_change':
-                icon = Icons.update;
-                iconColor = Colors.blue;
-                break;
-              case 'interview':
-                icon = Icons.event;
-                iconColor = Colors.orange;
-                break;
-              case 'job_approved':
-                icon = Icons.check_circle;
-                iconColor = Colors.green;
-                break;
-              case 'account_approved':
-                icon = Icons.verified_user;
-                iconColor = Colors.teal;
-                break;
-              default:
-                icon = Icons.notifications;
-                iconColor = Colors.deepPurple;
-            }
+            final config = _notifConfig(type);
 
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              color: isRead ? null : Colors.deepPurple.withOpacity(0.05),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: iconColor.withOpacity(0.15),
-                  child: Icon(icon, color: iconColor),
-                ),
-                title: Text(title, style: TextStyle(
-                  fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                )),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    Text(body),
-                    if (timeStr.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(timeStr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
-                  ],
-                ),
-                isThreeLine: true,
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
                 onTap: () {
-                  // Mark as read on tap
-                  if (!isRead) {
-                    docs[index].reference.update({'read': true});
-                  }
+                  if (!isRead) docs[index].reference.update({'read': true});
                 },
+                borderRadius: BorderRadius.circular(16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isRead ? Colors.white : config.color.withAlpha(8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isRead ? AppTheme.dividerColor : config.color.withAlpha(40)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [config.color.withAlpha(25), config.color.withAlpha(12)]),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(config.icon, color: config.color, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(title,
+                                      style: TextStyle(fontWeight: isRead ? FontWeight.w500 : FontWeight.w700, fontSize: 14)),
+                                ),
+                                if (!isRead)
+                                  Container(
+                                    width: 8, height: 8,
+                                    decoration: BoxDecoration(color: config.color, shape: BoxShape.circle),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(body, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.3)),
+                            if (timeStr.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(timeStr, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withAlpha(150))),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
           },
         );
       },
     );
+  }
+
+  _NotifConfig _notifConfig(String type) {
+    switch (type) {
+      case 'status_change': return _NotifConfig(Icons.swap_horiz_rounded, AppTheme.info);
+      case 'interview': return _NotifConfig(Icons.videocam_rounded, AppTheme.warning);
+      case 'offer': return _NotifConfig(Icons.card_giftcard_rounded, AppTheme.success);
+      case 'job_approved': return _NotifConfig(Icons.check_circle_rounded, AppTheme.success);
+      case 'account_approved': return _NotifConfig(Icons.verified_rounded, AppTheme.secondary);
+      default: return _NotifConfig(Icons.notifications_rounded, AppTheme.primary);
+    }
   }
 
   String _formatTime(DateTime dt) {
@@ -122,4 +147,10 @@ class NotificationsScreen extends StatelessWidget {
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return '${dt.day}/${dt.month}/${dt.year}';
   }
+}
+
+class _NotifConfig {
+  final IconData icon;
+  final Color color;
+  _NotifConfig(this.icon, this.color);
 }

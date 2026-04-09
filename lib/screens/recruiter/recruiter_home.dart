@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/auth_service.dart';
 import '../../models/job_model.dart';
+import '../../theme/app_theme.dart';
 import '../student/notifications_screen.dart';
 import '../shared/announcements_screen.dart';
 import 'recruiter_company_profile.dart';
@@ -202,16 +203,26 @@ class _RecruiterHomeState extends State<RecruiterHome> {
   Widget _statusChip(String status) {
     Color color;
     String label;
+    IconData icon;
     switch (status) {
-      case 'approved': color = Colors.green; label = 'ACTIVE'; break;
-      case 'rejected_by_admin': color = Colors.red; label = 'REJECTED'; break;
-      default: color = Colors.amber; label = 'PENDING'; break;
+      case 'approved': color = AppTheme.success; label = 'ACTIVE'; icon = Icons.check_circle_rounded; break;
+      case 'rejected_by_admin': color = AppTheme.error; label = 'REJECTED'; icon = Icons.cancel_rounded; break;
+      default: color = AppTheme.warning; label = 'PENDING'; icon = Icons.pending_rounded; break;
     }
-    return Chip(
-      label: Text(label, style: TextStyle(color: status == 'approved' ? Colors.white : Colors.black, fontSize: 10)),
-      backgroundColor: status == 'approved' ? Colors.green : color.withAlpha(60),
-      padding: EdgeInsets.zero,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withAlpha(15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.5)),
+        ],
+      ),
     );
   }
 
@@ -219,9 +230,9 @@ class _RecruiterHomeState extends State<RecruiterHome> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey),
+        Icon(icon, size: 14, color: AppTheme.textSecondary),
         const SizedBox(width: 3),
-        Text(text, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       ],
     );
   }

@@ -29,46 +29,44 @@ class _StudentHomeState extends State<StudentHome> {
     StudentProfileEdit(),
   ];
 
+  final _icons = const [
+    Icons.work_rounded,
+    Icons.calendar_month_rounded,
+    Icons.card_giftcard_rounded,
+    Icons.bookmark_rounded,
+    Icons.campaign_rounded,
+    Icons.notifications_rounded,
+    Icons.person_rounded,
+  ];
+
+  final _labels = const ['Jobs', 'Calendar', 'Offers', 'Saved', 'Notices', 'Alerts', 'Profile'];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_appBarTitle()),
+        title: Text(_labels[_selectedIndex]),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Sign Out',
             onPressed: () => context.read<AuthService>().signOut(),
           ),
         ],
       ),
-      body: _screens[_selectedIndex],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: _screens[_selectedIndex],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.work), label: 'Jobs'),
-          NavigationDestination(icon: Icon(Icons.calendar_month), label: 'Calendar'),
-          NavigationDestination(icon: Icon(Icons.card_giftcard), label: 'Offers'),
-          NavigationDestination(icon: Icon(Icons.bookmark), label: 'Saved'),
-          NavigationDestination(icon: Icon(Icons.campaign), label: 'Notices'),
-          NavigationDestination(icon: Icon(Icons.notifications), label: 'Alerts'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
-        ],
+        destinations: List.generate(_labels.length, (i) => NavigationDestination(
+          icon: Icon(_icons[i]),
+          label: _labels[i],
+        )),
       ),
     );
-  }
-
-  String _appBarTitle() {
-    switch (_selectedIndex) {
-      case 0: return 'Jobs';
-      case 1: return 'Calendar';
-      case 2: return 'My Offers';
-      case 3: return 'Saved Jobs';
-      case 4: return 'Announcements';
-      case 5: return 'Notifications';
-      case 6: return 'My Profile';
-      default: return 'Smart Placement';
-    }
   }
 }

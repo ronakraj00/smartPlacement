@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/company_model.dart';
 import '../../models/job_model.dart';
+import '../../theme/app_theme.dart';
 
 class CompanyProfileScreen extends StatelessWidget {
   final String companyName;
@@ -13,11 +14,7 @@ class CompanyProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(companyName)),
       body: FutureBuilder<QuerySnapshot>(
-        future: FirebaseFirestore.instance
-            .collection('companies')
-            .where('name', isEqualTo: companyName)
-            .limit(1)
-            .get(),
+        future: FirebaseFirestore.instance.collection('companies').where('name', isEqualTo: companyName).limit(1).get(),
         builder: (context, snapshot) {
           CompanyModel? company;
           if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
@@ -31,89 +28,125 @@ class CompanyProfileScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Company Header
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Colors.deepPurple.withAlpha(30),
-                          child: Text(
-                            companyName.isNotEmpty ? companyName[0].toUpperCase() : '?',
-                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.deepPurple),
-                          ),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(color: AppTheme.primary.withAlpha(40), blurRadius: 16, offset: const Offset(0, 6))],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 64, height: 64,
+                        decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(18)),
+                        child: Center(
+                          child: Text(companyName.isNotEmpty ? companyName[0].toUpperCase() : '?',
+                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
                         ),
-                        const SizedBox(height: 12),
-                        Text(companyName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                        if (company != null) ...[
-                          const SizedBox(height: 4),
-                          Text(company.industry, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(companyName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                      if (company != null)
+                        Text(company.industry, style: TextStyle(fontSize: 13, color: Colors.white.withAlpha(200))),
+                      if (company != null && company.avgRating > 0) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ...List.generate(5, (i) => Icon(
+                              i < company!.avgRating.round() ? Icons.star_rounded : Icons.star_border_rounded,
+                              color: Colors.amber, size: 20,
+                            )),
+                            const SizedBox(width: 6),
+                            Text('${company.avgRating}', style: TextStyle(color: Colors.white.withAlpha(200), fontSize: 13, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
 
                 // Company Details
                 if (company != null) ...[
-                  _infoSection('About', company.description),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          _infoRow(Icons.location_city, 'Headquarters', company.headquarters ?? 'N/A'),
-                          _infoRow(Icons.people, 'Employees', company.employeeCount ?? 'N/A'),
-                          _infoRow(Icons.star, 'Rating', '${company.avgRating}/5'),
-                          if (company.website != null)
-                            InkWell(
-                              onTap: () => launchUrl(Uri.parse(company!.website!)),
-                              child: _infoRow(Icons.language, 'Website', company.website!),
-                            ),
-                          if (company.pastVisitYears.isNotEmpty)
-                            _infoRow(Icons.history, 'Past Visits', company.pastVisitYears.join(', ')),
-                        ],
+                  // About
+                  if (company.description.isNotEmpty)
+                    _card([
+                      _sectionTitle('About'),
+                      const SizedBox(height: 8),
+                      Text(company.description, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5)),
+                    ]),
+
+                  // Details grid
+                  _card([
+                    _sectionTitle('Details'),
+                    const SizedBox(height: 10),
+                    if (company.headquarters != null) _detailRow(Icons.location_city_rounded, 'Headquarters', company.headquarters!),
+                    if (company.employeeCount != null) _detailRow(Icons.people_rounded, 'Employees', company.employeeCount!),
+                    if (company.website != null)
+                      InkWell(
+                        onTap: () => launchUrl(Uri.parse(company!.website!)),
+                        child: _detailRow(Icons.language_rounded, 'Website', company.website!, isLink: true),
                       ),
-                    ),
-                  ),
+                    if (company.pastVisitYears.isNotEmpty)
+                      _detailRow(Icons.history_rounded, 'Campus Visits', company.pastVisitYears.join(', ')),
+                  ]),
                 ] else
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('No detailed company profile available yet.', style: TextStyle(color: Colors.grey)),
+                  _card([
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, color: AppTheme.textSecondary.withAlpha(120)),
+                        const SizedBox(width: 8),
+                        const Expanded(child: Text('No detailed company profile available yet.', style: TextStyle(color: AppTheme.textSecondary))),
+                      ],
                     ),
-                  ),
+                  ]),
 
-                const SizedBox(height: 24),
-                const Text('Active Jobs', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
+                Text('Active Jobs', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 10),
 
-                // Active jobs from this company
+                // Active jobs
                 StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('jobs')
-                      .where('company', isEqualTo: companyName)
-                      .where('status', isEqualTo: 'approved')
-                      .snapshots(),
+                  stream: FirebaseFirestore.instance.collection('jobs').where('company', isEqualTo: companyName).where('status', isEqualTo: 'approved').snapshots(),
                   builder: (context, jobSnap) {
                     if (!jobSnap.hasData) return const Center(child: CircularProgressIndicator());
-                    final jobs = jobSnap.data!.docs
-                        .map((d) => JobModel.fromMap(d.data() as Map<String, dynamic>, d.id))
-                        .toList();
-                    if (jobs.isEmpty) return const Text('No active jobs.', style: TextStyle(color: Colors.grey));
+                    final jobs = jobSnap.data!.docs.map((d) => JobModel.fromMap(d.data() as Map<String, dynamic>, d.id)).toList();
+                    if (jobs.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.dividerColor)),
+                        child: const Center(child: Text('No active jobs.', style: TextStyle(color: AppTheme.textSecondary))),
+                      );
+                    }
 
                     return Column(
-                      children: jobs.map((job) => Card(
+                      children: jobs.map((job) => Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppTheme.dividerColor),
+                        ),
                         child: ListTile(
-                          title: Text(job.role, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${job.jobType} • ${job.location} • ${job.salary}'),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          leading: Container(
+                            width: 40, height: 40,
+                            decoration: BoxDecoration(color: AppTheme.primary.withAlpha(15), borderRadius: BorderRadius.circular(12)),
+                            child: const Icon(Icons.work_rounded, color: AppTheme.primary, size: 20),
+                          ),
+                          title: Text(job.role, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                          subtitle: Text('${job.jobType} • ${job.location} • ${job.salary}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                           trailing: job.ctcLpa > 0
-                              ? Chip(
-                                  label: Text('${job.ctcLpa} LPA', style: const TextStyle(fontSize: 11)),
-                                  backgroundColor: Colors.green.withAlpha(30),
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.success.withAlpha(12),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppTheme.success.withAlpha(40)),
+                                  ),
+                                  child: Text('₹${job.ctcLpa}L', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.success)),
                                 )
                               : null,
                         ),
@@ -122,22 +155,17 @@ class CompanyProfileScreen extends StatelessWidget {
                   },
                 ),
 
-                const SizedBox(height: 24),
-                const Text('Hiring History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
+                Text('Hiring History', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 10),
 
-                // Past applications stats
+                // Hiring stats
                 FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('applications')
-                      .get(),
+                  future: FirebaseFirestore.instance.collection('applications').get(),
                   builder: (context, appSnap) {
                     if (!appSnap.hasData) return const SizedBox.shrink();
                     return FutureBuilder<QuerySnapshot>(
-                      future: FirebaseFirestore.instance
-                          .collection('jobs')
-                          .where('company', isEqualTo: companyName)
-                          .get(),
+                      future: FirebaseFirestore.instance.collection('jobs').where('company', isEqualTo: companyName).get(),
                       builder: (context, allJobSnap) {
                         if (!allJobSnap.hasData) return const SizedBox.shrink();
                         final jobIds = allJobSnap.data!.docs.map((d) => d.id).toSet();
@@ -145,23 +173,28 @@ class CompanyProfileScreen extends StatelessWidget {
                         int total = apps.length;
                         int rejected = apps.where((d) => ((d.data() as Map)['status'] ?? '').toString().toLowerCase() == 'rejected').length;
 
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _statCol('Total Apps', '$total', Colors.blue),
-                                _statCol('Active', '${total - rejected}', Colors.green),
-                                _statCol('Rejected', '$rejected', Colors.red),
-                              ],
-                            ),
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.dividerColor),
+                          ),
+                          child: Row(
+                            children: [
+                              _statCol('Total', '$total', AppTheme.info),
+                              Container(width: 1, height: 36, color: AppTheme.dividerColor),
+                              _statCol('Active', '${total - rejected}', AppTheme.success),
+                              Container(width: 1, height: 36, color: AppTheme.dividerColor),
+                              _statCol('Rejected', '$rejected', AppTheme.error),
+                            ],
                           ),
                         );
                       },
                     );
                   },
                 ),
+                const SizedBox(height: 32),
               ],
             ),
           );
@@ -170,42 +203,54 @@ class CompanyProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoSection(String title, String content) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            Text(content),
-          ],
-        ),
+  Widget _card(List<Widget> children) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerColor),
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _sectionTitle(String text) {
+    return Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primary));
+  }
+
+  Widget _detailRow(IconData icon, String label, String value, {bool isLink = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey),
-          const SizedBox(width: 8),
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
-          Flexible(child: Text(value)),
+          Container(
+            width: 28, height: 28,
+            decoration: BoxDecoration(color: AppTheme.primary.withAlpha(10), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, size: 14, color: AppTheme.primary),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(width: 90, child: Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w500))),
+          Expanded(child: Text(value, style: TextStyle(
+            fontSize: 13, fontWeight: FontWeight.w500,
+            color: isLink ? AppTheme.info : AppTheme.textPrimary,
+            decoration: isLink ? TextDecoration.underline : null,
+          ))),
         ],
       ),
     );
   }
 
   Widget _statCol(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: TextStyle(fontSize: 12, color: color)),
-      ],
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: color)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color.withAlpha(180))),
+        ],
+      ),
     );
   }
 }
