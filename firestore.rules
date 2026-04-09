@@ -1,0 +1,83 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============ HELPER FUNCTIONS ============
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isRecruiter() {
+      return isAuthenticated() && getUserRole() == 'recruiter';
+    }
+
+    function isStudent() {
+      return isAuthenticated() && getUserRole() == 'student';
+    }
+
+    // ============ USERS COLLECTION ============
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles (needed for applicant lists)
+      allow read: if isAuthenticated();
+      // Users can only write their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ============ JOBS COLLECTION ============
+    match /jobs/{jobId} {
+      // Students can only read approved jobs; Recruiters & Admins can read all
+      allow read: if isAuthenticated();
+      // Only recruiters can create jobs
+      allow create: if isRecruiter();
+      // Recruiters can update their own jobs; Admins can approve/reject any job
+      allow update: if isAdmin() || 
+                       (isRecruiter() && resource.data.recruiterId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ============ APPLICATIONS COLLECTION ============
+    match /applications/{applicationId} {
+      // Students can read their own applications; Recruiters can read apps for their jobs
+      allow read: if isAuthenticated();
+      // Students can create applications
+      allow create: if isStudent();
+      // Recruiters can update application status; Students cannot modify after submission
+      allow update: if isRecruiter() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ============ INTERVIEWS COLLECTION ============
+    match /interviews/{interviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isRecruiter() || isAdmin();
+      allow update: if isRecruiter() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ============ NOTIFICATIONS COLLECTION ============
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // System (any authenticated user as proxy) can create notifications
+      allow create: if isAuthenticated();
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+  }
+}
