@@ -9,7 +9,7 @@ class JobModel {
   final double requiredCgpa;
   final List<String> requiredSkills;
   final String? branchEligibility;
-  
+
   final String status;
   final String location;
   final String salary;
@@ -17,10 +17,14 @@ class JobModel {
   final List<String> rounds;
   final List<String> documentUrls;
 
-  // New fields
   final DateTime? deadline;
   final DateTime? postedAt;
   final int openPositions;
+
+  // New: numeric CTC for policy engine
+  final double ctcLpa;
+  // New: company profile reference
+  final String? companyId;
 
   JobModel({
     required this.id,
@@ -40,6 +44,8 @@ class JobModel {
     this.deadline,
     this.postedAt,
     this.openPositions = 0,
+    this.ctcLpa = 0.0,
+    this.companyId,
   });
 
   factory JobModel.fromMap(Map<String, dynamic> data, String documentId) {
@@ -65,6 +71,8 @@ class JobModel {
           ? ((data['postedAt'] ?? data['createdAt']) as Timestamp).toDate()
           : null,
       openPositions: data['openPositions'] ?? 0,
+      ctcLpa: (data['ctcLpa'] ?? 0.0).toDouble(),
+      companyId: data['companyId'],
     );
   }
 
@@ -86,10 +94,11 @@ class JobModel {
       'deadline': deadline != null ? Timestamp.fromDate(deadline!) : null,
       'postedAt': postedAt != null ? Timestamp.fromDate(postedAt!) : null,
       'openPositions': openPositions,
+      'ctcLpa': ctcLpa,
+      'companyId': companyId,
     };
   }
 
   bool get isExpired => deadline != null && DateTime.now().isAfter(deadline!);
-  
   int get daysRemaining => deadline != null ? deadline!.difference(DateTime.now()).inDays : -1;
 }

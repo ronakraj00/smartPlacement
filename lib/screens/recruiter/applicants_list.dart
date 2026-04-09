@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/job_model.dart';
 import '../../models/user_model.dart';
 import '../../services/notification_helper.dart';
+import '../shared/student_public_profile.dart';
 
 class ApplicantsList extends StatelessWidget {
   final String jobId;
@@ -89,6 +90,81 @@ class ApplicantsList extends StatelessWidget {
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Confirm Reject', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExtendOfferDialog(BuildContext context, String studentId, String studentName, String jobId, String jobTitle, double defaultCtc, String company, String role) {
+    final ctcC = TextEditingController(text: defaultCtc > 0 ? '$defaultCtc' : '');
+    final letterC = TextEditingController();
+    final deadlineC = TextEditingController();
+    DateTime? deadline;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Extend Offer to $studentName'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: ctcC, decoration: const InputDecoration(labelText: 'CTC (LPA)', border: OutlineInputBorder()), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+              const SizedBox(height: 12),
+              TextField(controller: letterC, decoration: const InputDecoration(labelText: 'Offer Letter URL (optional)', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(
+                controller: deadlineC,
+                decoration: const InputDecoration(labelText: 'Response Deadline', border: OutlineInputBorder(), suffixIcon: Icon(Icons.calendar_today)),
+                readOnly: true,
+                onTap: () async {
+                  final picked = await showDatePicker(context: ctx, initialDate: DateTime.now().add(const Duration(days: 7)), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 90)));
+                  if (picked != null) {
+                    deadline = picked;
+                    deadlineC.text = '${picked.day}/${picked.month}/${picked.year}';
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final ctc = double.tryParse(ctcC.text) ?? 0.0;
+              Navigator.pop(ctx);
+
+              await FirebaseFirestore.instance.collection('offers').add({
+                'jobId': jobId,
+                'studentId': studentId,
+                'company': company,
+                'role': role,
+                'ctcLpa': ctc,
+                'offerLetterUrl': letterC.text.isNotEmpty ? letterC.text : null,
+                'status': 'pending',
+                'offeredAt': FieldValue.serverTimestamp(),
+                'responseDeadline': deadline != null ? Timestamp.fromDate(deadline!) : null,
+                'tier': ctc >= 25 ? 'Super Dream' : ctc >= 15 ? 'Dream' : 'Normal',
+              });
+
+              // Notify student
+              await FirebaseFirestore.instance.collection('notifications').add({
+                'userId': studentId,
+                'title': '🎉 You received an offer!',
+                'body': '$company has extended an offer for $role — ${ctc} LPA!',
+                'type': 'offer',
+                'read': false,
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Offer sent to $studentName!')));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Send Offer', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -256,7 +332,7 @@ class ApplicantsList extends StatelessWidget {
             ),
             body: TabBarView(
               children: pipelineTabs.map((tabStatus) {
-                return _buildPipelineColumn(context, tabStatus, job.rounds, jobTitle);
+                return _buildPipelineColumn(context, tabStatus, job, jobTitle);
               }).toList(),
             ),
           ),
@@ -265,7 +341,8 @@ class ApplicantsList extends StatelessWidget {
     );
   }
 
-  Widget _buildPipelineColumn(BuildContext context, String targetStatus, List<String> completePipeline, String jobTitle) {
+  Widget _buildPipelineColumn(BuildContext context, String targetStatus, JobModel job, String jobTitle) {
+    final completePipeline = job.rounds;
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('applications')
@@ -318,11 +395,16 @@ class ApplicantsList extends StatelessWidget {
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+                  child: InkWell(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => StudentPublicProfile(studentId: studentId),
+                    )),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                         Row(
                           children: [
                             CircleAvatar(
@@ -387,9 +469,10 @@ class ApplicantsList extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    onPressed: null,
-                                    icon: const Icon(Icons.check_circle),
-                                    label: const Text('Finalized'),
+                                    onPressed: () => _showExtendOfferDialog(context, studentId, student.name, jobId, jobTitle, job.ctcLpa, job.company, job.role),
+                                    icon: const Icon(Icons.card_giftcard),
+                                    label: const Text('Extend Offer'),
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                                   ),
                                 ),
                               ]
@@ -413,9 +496,10 @@ class ApplicantsList extends StatelessWidget {
                            )
                         ]
                       ],
-                    ),
-                  ),
-                );
+                    ), // Column
+                  ), // Padding
+                ), // InkWell
+                ); // Card
               },
             );
           },

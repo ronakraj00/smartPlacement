@@ -25,6 +25,7 @@ class _JobCreationFormState extends State<JobCreationForm> {
   final _documentController = TextEditingController();
   final _openPositionsController = TextEditingController();
   final _deadlineController = TextEditingController();
+  final _ctcController = TextEditingController();
   DateTime? _selectedDeadline;
   
   final List<TextEditingController> _roundControllers = [];
@@ -81,6 +82,7 @@ class _JobCreationFormState extends State<JobCreationForm> {
         'createdAt': FieldValue.serverTimestamp(),
         'openPositions': int.tryParse(_openPositionsController.text) ?? 0,
         'deadline': _selectedDeadline != null ? Timestamp.fromDate(_selectedDeadline!) : null,
+        'ctcLpa': double.tryParse(_ctcController.text) ?? 0.0,
       });
 
       if (mounted) {
@@ -152,9 +154,23 @@ class _JobCreationFormState extends State<JobCreationForm> {
                 ],
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _salaryController,
-                decoration: const InputDecoration(labelText: 'Salary (CTC/Stipend)', border: OutlineInputBorder()),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _salaryController,
+                      decoration: const InputDecoration(labelText: 'Salary (CTC/Stipend)', border: OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _ctcController,
+                      decoration: const InputDecoration(labelText: 'CTC (LPA, numeric)', hintText: 'e.g. 12.5', border: OutlineInputBorder()),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Row(

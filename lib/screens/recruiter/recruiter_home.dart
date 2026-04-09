@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../services/auth_service.dart';
 import '../../models/job_model.dart';
 import '../student/notifications_screen.dart';
+import '../shared/announcements_screen.dart';
+import 'recruiter_company_profile.dart';
+import 'recruiter_analytics.dart';
 
 class RecruiterHome extends StatefulWidget {
   const RecruiterHome({super.key});
@@ -24,155 +27,191 @@ class _RecruiterHomeState extends State<RecruiterHome> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_bottomIndex == 0 ? 'Recruiter Dashboard' : 'Notifications'),
+        title: Text(_appBarTitle()),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => context.read<AuthService>().signOut(),
-          )
+          IconButton(icon: const Icon(Icons.logout), onPressed: () => context.read<AuthService>().signOut()),
         ],
       ),
-      floatingActionButton: (_bottomIndex != 0 || isPendingAccount)
+      floatingActionButton: (_bottomIndex != 1 || isPendingAccount)
           ? null
           : FloatingActionButton(
               child: const Icon(Icons.add),
               onPressed: () => context.push('/job-creation'),
             ),
-      body: _bottomIndex == 0
-          ? _buildDashboard(context, user, isPendingAccount)
-          : const NotificationsScreen(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _bottomIndex,
-        onTap: (i) => setState(() => _bottomIndex = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts'),
+      body: _buildBody(context, user, isPendingAccount),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _bottomIndex,
+        onDestinationSelected: (i) => setState(() => _bottomIndex = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.analytics), label: 'Analytics'),
+          NavigationDestination(icon: Icon(Icons.work), label: 'My Jobs'),
+          NavigationDestination(icon: Icon(Icons.business), label: 'Company'),
+          NavigationDestination(icon: Icon(Icons.campaign), label: 'Notices'),
+          NavigationDestination(icon: Icon(Icons.notifications), label: 'Alerts'),
         ],
       ),
     );
   }
 
-  Widget _buildDashboard(BuildContext context, dynamic user, bool isPendingAccount) {
+  String _appBarTitle() {
+    switch (_bottomIndex) {
+      case 0: return 'Dashboard';
+      case 1: return 'My Jobs';
+      case 2: return 'Company Profile';
+      case 3: return 'Announcements';
+      case 4: return 'Notifications';
+      default: return 'Recruiter';
+    }
+  }
+
+  Widget _buildBody(BuildContext context, dynamic user, bool isPendingAccount) {
+    if (isPendingAccount) {
+      return _buildPendingBanner();
+    }
+
+    switch (_bottomIndex) {
+      case 0: return const RecruiterAnalytics();
+      case 1: return _buildJobsList(context, user);
+      case 2: return const RecruiterCompanyProfile();
+      case 3: return const AnnouncementsScreen();
+      case 4: return const NotificationsScreen();
+      default: return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildPendingBanner() {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        margin: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.amber.withAlpha(30),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.amber, width: 2),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.hourglass_top, color: Colors.amber, size: 48),
+            SizedBox(height: 12),
+            Text('Account Pending Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            SizedBox(height: 8),
+            Text('The placement cell admin needs to verify your account before you can post jobs.',
+                textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJobsList(BuildContext context, dynamic user) {
     if (user == null) return const Center(child: CircularProgressIndicator());
 
-    return Column(
-      children: [
-        if (isPendingAccount)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.amber.withAlpha(30),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber),
-            ),
-            child: const Row(
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('jobs')
+          .where('recruiterId', isEqualTo: user.id)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.hourglass_top, color: Colors.amber, size: 32),
-                SizedBox(width: 12),
-                Expanded(
+                Icon(Icons.work_off, size: 64, color: Colors.grey),
+                SizedBox(height: 12),
+                Text('No jobs posted yet.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                Text('Tap + to create one!', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final job = JobModel.fromMap(docs[index].data() as Map<String, dynamic>, docs[index].id);
+            bool isPending = job.status.toLowerCase() == 'pending';
+            bool isRejected = job.status == 'rejected_by_admin';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: isRejected ? const BorderSide(color: Colors.red, width: 1) : BorderSide.none,
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: isPending || isRejected ? null : () => context.push('/applicants/${job.id}'),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Account Pending Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      SizedBox(height: 4),
-                      Text('The placement cell admin needs to verify your account before you can post jobs.', style: TextStyle(color: Colors.grey)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(job.role, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                                Text(job.company, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                              ],
+                            ),
+                          ),
+                          _statusChip(job.status),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 12,
+                        children: [
+                          _infoTag(Icons.work_outline, job.jobType.isNotEmpty ? job.jobType : 'N/A'),
+                          _infoTag(Icons.location_on, job.location.isNotEmpty ? job.location : 'N/A'),
+                          _infoTag(Icons.people, '${job.rounds.length} rounds'),
+                          if (job.ctcLpa > 0) _infoTag(Icons.currency_rupee, '${job.ctcLpa} LPA'),
+                        ],
+                      ),
+                      if (job.deadline != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Deadline: ${job.deadline!.day}/${job.deadline!.month}/${job.deadline!.year}${job.isExpired ? " (CLOSED)" : ""}',
+                          style: TextStyle(fontSize: 12, color: job.isExpired ? Colors.red : Colors.grey),
+                        ),
+                      ],
+                      if (!isPending && !isRejected) ...[
+                        const Divider(height: 20),
+                        _PipelineStatsRow(jobId: job.id, rounds: job.rounds),
+                      ],
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        Expanded(
-          child: isPendingAccount
-              ? const Center(child: Text('Waiting for admin approval...'))
-              : StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('jobs')
-                      .where('recruiterId', isEqualTo: user.id)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final docs = snapshot.data?.docs ?? [];
-                    if (docs.isEmpty) {
-                      return const Center(child: Text('No jobs posted yet.\nTap + to create one!'));
-                    }
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
-                    return ListView.builder(
-                      itemCount: docs.length,
-                      itemBuilder: (context, index) {
-                        final job = JobModel.fromMap(docs[index].data() as Map<String, dynamic>, docs[index].id);
-                        bool isPending = job.status.toLowerCase() == 'pending';
-
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: isPending ? null : () => context.push('/applicants/${job.id}'),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(job.role, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                                            Text(job.company, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                                          ],
-                                        ),
-                                      ),
-                                      Chip(
-                                        label: Text(
-                                          isPending ? 'PENDING' : 'ACTIVE',
-                                          style: TextStyle(color: isPending ? Colors.black : Colors.white, fontSize: 10),
-                                        ),
-                                        backgroundColor: isPending ? Colors.amberAccent : Colors.green,
-                                        padding: EdgeInsets.zero,
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      _infoTag(Icons.work_outline, job.jobType.isNotEmpty ? job.jobType : 'N/A'),
-                                      const SizedBox(width: 12),
-                                      _infoTag(Icons.location_on, job.location.isNotEmpty ? job.location : 'N/A'),
-                                      const SizedBox(width: 12),
-                                      _infoTag(Icons.people, '${job.rounds.length} rounds'),
-                                    ],
-                                  ),
-                                  if (job.deadline != null) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Deadline: ${job.deadline!.day}/${job.deadline!.month}/${job.deadline!.year}${job.isExpired ? " (CLOSED)" : ""}',
-                                      style: TextStyle(fontSize: 12, color: job.isExpired ? Colors.red : Colors.grey),
-                                    ),
-                                  ],
-
-                                  if (!isPending) ...[
-                                    const Divider(height: 20),
-                                    // Per-job pipeline stats
-                                    _PipelineStatsRow(jobId: job.id, rounds: job.rounds),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-        ),
-      ],
+  Widget _statusChip(String status) {
+    Color color;
+    String label;
+    switch (status) {
+      case 'approved': color = Colors.green; label = 'ACTIVE'; break;
+      case 'rejected_by_admin': color = Colors.red; label = 'REJECTED'; break;
+      default: color = Colors.amber; label = 'PENDING'; break;
+    }
+    return Chip(
+      label: Text(label, style: TextStyle(color: status == 'approved' ? Colors.white : Colors.black, fontSize: 10)),
+      backgroundColor: status == 'approved' ? Colors.green : color.withAlpha(60),
+      padding: EdgeInsets.zero,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 
@@ -188,7 +227,7 @@ class _RecruiterHomeState extends State<RecruiterHome> {
   }
 }
 
-/// Shows a compact row of pipeline stats per job (e.g., Applied: 5, Interview: 2, etc.)
+/// Shows compact pipeline stats per job.
 class _PipelineStatsRow extends StatelessWidget {
   final String jobId;
   final List<String> rounds;

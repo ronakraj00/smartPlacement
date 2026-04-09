@@ -3,9 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../models/job_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/placement_policy_service.dart';
 import '../../models/interview_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dashboard_summary.dart';
+import '../shared/company_profile_screen.dart';
+import 'bookmarked_jobs_screen.dart';
 
 class JobFeed extends StatefulWidget {
   const JobFeed({super.key});
@@ -31,18 +34,12 @@ class _JobFeedState extends State<JobFeed> {
   void _applyToJob(BuildContext context, JobModel job, String userId) async {
     final user = context.read<AuthService>().currentUser;
     if (user != null) {
-      if (job.requiredCgpa > 0 && (user.cgpa ?? 0) < job.requiredCgpa) {
+      // Use placement policy engine for full eligibility check
+      final rejection = await PlacementPolicyService.checkEligibility(student: user, job: job);
+      if (rejection != null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('You need a minimum CGPA of ${job.requiredCgpa} to apply.')),
-          );
-        }
-        return;
-      }
-      if (job.isExpired) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This job has passed its application deadline.')),
+            SnackBar(content: Text(rejection), duration: const Duration(seconds: 4)),
           );
         }
         return;
@@ -161,7 +158,27 @@ class _JobFeedState extends State<JobFeed> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  // Tappable company name
+                  InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => CompanyProfileScreen(companyName: job.company),
+                      ));
+                    },
+                    child: Row(
+                      children: [
+                        const Icon(Icons.business, size: 16, color: Colors.deepPurple),
+                        const SizedBox(width: 6),
+                        Text('View ${job.company} Profile →', style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
+                  if (job.ctcLpa > 0) ...[
+                    _detailRow(Icons.monetization_on, 'CTC', '${job.ctcLpa} LPA'),
+                  ],
                   _detailRow(Icons.location_on, 'Location', job.location.isNotEmpty ? job.location : 'N/A'),
                   _detailRow(Icons.work_outline, 'Type', job.jobType.isNotEmpty ? job.jobType : 'N/A'),
                   _detailRow(Icons.currency_rupee, 'Salary', job.salary.isNotEmpty ? job.salary : 'N/A'),
@@ -225,6 +242,18 @@ class _JobFeedState extends State<JobFeed> {
             ),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.bookmark_add),
+              tooltip: 'Save Job',
+              onPressed: () async {
+                await BookmarkedJobsScreen.toggleBookmark(userId, job.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Bookmark toggled!')),
+                  );
+                }
+              },
+            ),
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
             if (applicationStatus == null && !job.isExpired)
               ElevatedButton(

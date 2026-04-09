@@ -13,6 +13,8 @@ import 'screens/recruiter/job_creation_form.dart';
 import 'screens/recruiter/applicants_list.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'services/notification_service.dart';
+import 'screens/shared/company_profile_screen.dart';
+import 'screens/shared/student_public_profile.dart';
 
 import 'firebase_options.dart';
 
@@ -99,6 +101,20 @@ final GoRouter _router = GoRouter(
       builder: (context, state) {
         final jobId = state.pathParameters['jobId']!;
         return ApplicantsList(jobId: jobId);
+      },
+    ),
+    GoRoute(
+      path: '/company/:name',
+      builder: (context, state) {
+        final name = state.pathParameters['name']!;
+        return CompanyProfileScreen(companyName: Uri.decodeComponent(name));
+      },
+    ),
+    GoRoute(
+      path: '/student-profile/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return StudentPublicProfile(studentId: id);
       },
     ),
   ],
